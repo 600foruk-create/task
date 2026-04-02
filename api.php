@@ -400,9 +400,19 @@ function getTaskDateRanges($db)
             $task = $stmt2->fetch(PDO::FETCH_ASSOC);
             if ($task) {
                 $key = $r['user_id'] . '_' . $task['code'];
+                $start = $r['start_date'];
+                if(strpos((string)$start, '-') !== false) {
+                    $start = date('j', strtotime($start));
+                }
+                
+                $end = $r['end_date'];
+                if(strpos((string)$end, '-') !== false) {
+                    $end = date('j', strtotime($end));
+                }
+                
                 $formatted[$key] = [
-                    'start' => $r['start_date'],
-                    'end' => $r['end_date']
+                    'start' => $start,
+                    'end' => $end
                 ];
             }
         }
