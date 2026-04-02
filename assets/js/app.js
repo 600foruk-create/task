@@ -432,9 +432,24 @@
         // ========== AUTO REFRESH ==========
         function startAutoRefresh() {
             if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-            autoRefreshTimer = setInterval(() => {
-                if (currentUser) loadAllData().then(() => refreshCurrentView());
-            }, 300000);
+            // Auto refresh completely disabled as per user request
+            // autoRefreshTimer = setInterval(() => {
+            //     if (currentUser) loadAllData().then(() => refreshCurrentView());
+            // }, 300000);
+        }
+
+        // ========== MANUAL REFRESH ==========
+        function manualRefresh() {
+            if (currentUser) {
+                const syncIcon = document.getElementById('syncIcon');
+                if (syncIcon) {
+                    syncIcon.className = 'fas fa-sync-alt fa-spin';
+                }
+                loadAllData().then(() => {
+                    refreshCurrentView();
+                    if (syncIcon) syncIcon.className = 'fas fa-wifi';
+                });
+            }
         }
 
         // ========== MIDNIGHT RESET ==========
@@ -2216,18 +2231,30 @@
         }
 
         async function saveAssignments() {
-            for (let userId in assignments) {
-                for (let taskId of assignments[userId]) {
-                    await saveToServer('saveAssignment', { 
-                        user_id: userId, 
-                        task_id: taskId, 
-                        checked: true 
-                    });
+            const saveBtn = document.querySelector('.save-all-btn');
+            const originalHTML = saveBtn ? saveBtn.innerHTML : '<i class="fas fa-save"></i> Save All Assignments';
+            if(saveBtn) {
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                saveBtn.disabled = true;
+            }
+
+            try {
+                const result = await saveToServer('saveAllAssignments', assignments);
+                if (result.success) {
+                    localStorage.setItem('assignments', JSON.stringify(assignments));
+                    alert('✅ Assignments saved successfully!');
+                } else {
+                    alert('❌ Error saving assignments: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error(error);
+                alert('❌ Error saving assignments!');
+            } finally {
+                if(saveBtn) {
+                    saveBtn.innerHTML = originalHTML;
+                    saveBtn.disabled = false;
                 }
             }
-            
-            localStorage.setItem('assignments', JSON.stringify(assignments));
-            alert('✅ Assignments saved!');
         }
 
         // ========== USER TASKS ==========

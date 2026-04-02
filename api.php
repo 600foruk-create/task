@@ -79,6 +79,9 @@ switch($action) {
     case 'saveAssignment':
         saveAssignment($db);
         break;
+    case 'saveAllAssignments':
+        saveAllAssignments($db);
+        break;
     case 'saveDateRange':
         saveDateRange($db);
         break;
@@ -751,6 +754,43 @@ function saveAssignment($db) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
 }
+
+// ========== NEW: SAVE ALL ASSIGNMENTS ==========
+function saveAllAssignments($db) {
+    $assignments = json_decode($_POST['data'] ?? '{}', true);
+    
+    try {
+        $db->beginTransaction();
+
+        $assignedDate = date('Y-m-d');
+        
+        $stmtTask = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+        $stmtInsert = $db->prepare("INSERT INTO assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
+        $stmtCheck = $db->prepare("SELECT id FROM assignments WHERE user_id = ? AND task_id = ?");
+
+        foreach ($assignments as $userId => $taskCodes) {
+            foreach ($taskCodes as $taskCode) {
+                $stmtTask->execute([$taskCode]);
+                $task = $stmtTask->fetch(PDO::FETCH_ASSOC);
+                
+                if ($task) {
+                    $taskId = $task['id'];
+                    $stmtCheck->execute([$userId, $taskId]);
+                    if ($stmtCheck->rowCount() == 0) {
+                        $stmtInsert->execute([$userId, $taskId, $assignedDate]);
+                    }
+                }
+            }
+        }
+        
+        $db->commit();
+        echo json_encode(['success' => true]);
+    } catch(Exception $e) {
+        $db->rollBack();
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
 
 // ========== FIXED: SAVE DATE RANGE with proper deletion ==========
 function saveDateRange($db) {

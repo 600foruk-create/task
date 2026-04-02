@@ -8,7 +8,7 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
                     <span>Welcome, <span id="userName">Administrator</span></span>
-                    <span class="sync-status online" id="syncStatus">
+                    <span class="sync-status online" id="syncStatus" onclick="manualRefresh()" style="cursor: pointer;" title="Manual Refresh">
                         <i class="fas fa-sync-alt fa-spin" style="display: none;" id="syncSpinner"></i>
                         <i class="fas fa-wifi" id="syncIcon"></i>
                         <span id="syncText">Connected</span>
