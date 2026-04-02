@@ -844,14 +844,11 @@
                     else if (task.type === 'monthly') {
                         let range = taskDateRanges[`${user.id}_${task.id}`];
                         if (range && range.start && range.end) {
-                            let start = new Date(range.start);
-                            start.setHours(0,0,0,0);
-                            let end = new Date(range.end);
-                            end.setHours(23,59,59,999);
-                            let current = new Date(todayStr);
-                            current.setHours(0,0,0,0);
+                            let startDay = parseInt(range.start);
+                            let endDay = parseInt(range.end);
+                            let currentDay = today.getDate();
                             
-                            if (current >= start && current <= end) {
+                            if (currentDay >= startDay && currentDay <= endDay) {
                                 showTask = true;
                             }
                         } else if (task.dueDate) {
@@ -1738,12 +1735,12 @@
                             let range = taskDateRanges[`${user.id}_${task.id}`];
                             if (range && range.start && range.end) {
                                 html += `<div class="due-info monthly" id="dueinfo_${user.id}_${task.id}">
-                                    <i class="fas fa-calendar"></i> From: ${range.start} To: ${range.end}
+                                    <i class="fas fa-calendar"></i> Days: ${range.start} to ${range.end} of every month
                                 </div>`;
                             } else {
                                 html += `<div class="date-range-container" id="rangecontainer_${user.id}_${task.id}" style="${checked ? 'display:flex' : 'display:none'}">
-                                    <input type="date" class="date-input" id="rangestart_${user.id}_${task.id}" placeholder="Start Date" value="">
-                                    <input type="date" class="date-input" id="rangeend_${user.id}_${task.id}" placeholder="End Date" value="">
+                                    <input type="number" min="1" max="31" class="date-input" id="rangestart_${user.id}_${task.id}" placeholder="Start Day (1-31)" value="" style="width: 120px;">
+                                    <input type="number" min="1" max="31" class="date-input" id="rangeend_${user.id}_${task.id}" placeholder="End Day (1-31)" value="" style="width: 120px;">
                                     <button class="save-range-btn" onclick="saveDateRange(${user.id}, '${task.id}')">Save</button>
                                 </div>`;
                             }
@@ -2172,12 +2169,12 @@
             const endDate = document.getElementById(`rangeend_${userId}_${taskId}`).value;
             
             if (!startDate || !endDate) {
-                alert('Please select both start and end dates');
+                alert('Please select both start and end days (1-31)');
                 return;
             }
             
-            if (new Date(startDate) > new Date(endDate)) {
-                alert('Start date must be before end date');
+            if (parseInt(startDate) > parseInt(endDate)) {
+                alert('Start day must be less than or equal to end day');
                 return;
             }
             
@@ -2218,7 +2215,7 @@
                         const dueInfo = document.createElement('div');
                         dueInfo.className = 'due-info monthly';
                         dueInfo.id = `dueinfo_${userId}_${taskId}`;
-                        dueInfo.innerHTML = `<i class="fas fa-calendar"></i> From: ${startDate} To: ${endDate}`;
+                        dueInfo.innerHTML = `<i class="fas fa-calendar"></i> Days: ${startDate} to ${endDate} of every month`;
                         taskRow.appendChild(dueInfo);
                     }
                     
@@ -2319,14 +2316,11 @@
                 else if (task.type === 'monthly') {
                     let range = taskDateRanges[`${currentUser.id}_${task.id}`];
                     if (range && range.start && range.end) {
-                        let start = new Date(range.start);
-                        start.setHours(0,0,0,0);
-                        let end = new Date(range.end);
-                        end.setHours(23,59,59,999);
-                        let current = new Date(todayStr);
-                        current.setHours(0,0,0,0);
+                        let startDay = parseInt(range.start);
+                        let endDay = parseInt(range.end);
+                        let currentDay = today.getDate();
                         
-                        if (current >= start && current <= end) {
+                        if (currentDay >= startDay && currentDay <= endDay) {
                             showTask = true;
                         }
                     }
