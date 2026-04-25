@@ -960,13 +960,12 @@
 
         // ========== USERS TABLE ==========
         function loadUsersTable() {
-            let html = '<table><thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Name</th><th>Designation</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
+            let html = '';
             users.forEach(u => {
                 let desigClass = getDesignationBadgeClass(u.designation);
                 let typeDisplay = u.type === 'admin' ? 'Admin' : 'User';
                 html += `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.email || '-'}</td><td>${u.name}</td><td><span class="designation-badge ${desigClass}">${u.designation}</span></td><td><span class="user-type-badge ${u.type === 'admin' ? 'user-type-admin' : 'user-type-user'}">${typeDisplay}</span></td><td><button onclick="editUser(${u.id})" class="edit-btn" style="padding:5px10px;">Edit</button>${u.id !== 1 ? `<button onclick="deleteUser(${u.id})" class="delete-btn" style="padding:5px10px;">Del</button>` : ''}</td></tr>`;
             });
-            html += '</tbody></table>';
             document.getElementById('userTable').innerHTML = html;
         }
 
