@@ -2722,7 +2722,11 @@
             
             let headerHtml = '<tr><th>Task</th>';
             for (let d=1; d<=days; d++) {
-                headerHtml += `<th ${sundays.includes(d) ? 'class="sunday-header"' : ''}>${d}</th>`;
+                let isSun = sundays.includes(d);
+                headerHtml += `<th ${isSun ? 'class="sunday-header"' : ''} style="min-width:30px;">
+                    ${d}
+                    ${isSun ? '<br><span style="font-size:10px;font-weight:normal;display:block;margin-top:2px;">SUN</span>' : ''}
+                </th>`;
             }
             headerHtml += '</tr>';
             document.getElementById('adminMonthlyHeader').innerHTML = headerHtml;
@@ -2806,7 +2810,11 @@
             
             let headerHtml = '<tr><th>Task</th>';
             for (let d=1; d<=days; d++) {
-                headerHtml += `<th ${sundays.includes(d) ? 'class="sunday-header"' : ''}>${d}</th>`;
+                let isSun = sundays.includes(d);
+                headerHtml += `<th ${isSun ? 'class="sunday-header"' : ''} style="min-width:30px;">
+                    ${d}
+                    ${isSun ? '<br><span style="font-size:10px;font-weight:normal;display:block;margin-top:2px;">SUN</span>' : ''}
+                </th>`;
             }
             headerHtml += '</tr>';
             document.getElementById('userMonthlyHeader').innerHTML = headerHtml;
