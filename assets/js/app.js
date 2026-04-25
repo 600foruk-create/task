@@ -2479,12 +2479,73 @@
             let allTasks = [];
             categories.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(item => allTasks.push({...item, categoryName: cat.name, subcategoryName: sub.name}))));
             
-            let filteredTasks = allTasks;
-            
-            if (userId !== 'all') { 
-                let userTasks = assignments[userId] || []; 
-                filteredTasks = allTasks.filter(task => userTasks.includes(task.id)); 
-            }
+            let filteredTasks = allTasks.filter(task => {
+                // Check if task was completed on this date
+                let isCompletedOnDate = false;
+                Object.keys(userHistory).forEach(key => {
+                    if (key.includes(date) && userHistory[key][task.id]) {
+                        let uid = key.split('_')[0];
+                        if (userId === 'all' || userId == uid) {
+                            isCompletedOnDate = true;
+                        }
+                    }
+                });
+                if (isCompletedOnDate) return true;
+
+                // Check if assigned to selected user(s)
+                let isAssigned = false;
+                if (userId === 'all') {
+                    Object.keys(assignments).forEach(uid => {
+                        if (assignments[uid].includes(task.id)) isAssigned = true;
+                    });
+                } else {
+                    isAssigned = (assignments[userId] || []).includes(task.id);
+                }
+                if (!isAssigned) return false;
+
+                // Check if due on this date
+                let showTask = false;
+                let reportDate = new Date(date);
+                let reportMonth = reportDate.getMonth() + 1;
+                let reportDay = reportDate.getDate();
+
+                if (task.type === 'daily') {
+                    showTask = true;
+                } else if (task.type === 'weekly') {
+                    if (task.dueDate) {
+                        let dueDate = new Date(task.dueDate);
+                        dueDate.setHours(0,0,0,0);
+                        let rDate = new Date(date);
+                        rDate.setHours(0,0,0,0);
+                        let daysDiff = Math.floor((dueDate - rDate) / (1000 * 60 * 60 * 24));
+                        if (daysDiff >= 0 && daysDiff <= 1) showTask = true;
+                        if (!showTask && dueDate < rDate) {
+                            let daysPassed = Math.floor((rDate - dueDate) / (1000 * 60 * 60 * 24));
+                            if ((daysPassed % 7) >= 5 || (daysPassed % 7) <= 0) showTask = true;
+                        }
+                    }
+                } else if (task.type === 'monthly') {
+                    if (userId !== 'all') {
+                        let range = taskDateRanges[`${userId}_${task.id}`];
+                        if (range && range.start && range.end) {
+                            if (reportDay >= parseInt(range.start) && reportDay <= parseInt(range.end)) showTask = true;
+                        }
+                    } else {
+                        Object.keys(assignments).forEach(uid => {
+                            let range = taskDateRanges[`${uid}_${task.id}`];
+                            if (range && range.start && range.end) {
+                                if (reportDay >= parseInt(range.start) && reportDay <= parseInt(range.end)) showTask = true;
+                            }
+                        });
+                    }
+                } else if (task.type === 'annual') {
+                    if (task.dueDate) {
+                        let taskMonth = new Date(task.dueDate).getMonth() + 1;
+                        if (reportMonth === taskMonth) showTask = true;
+                    }
+                }
+                return showTask;
+            });
             
             document.getElementById('adminDailyTitle').textContent = `Daily Report - ${date}`;
             
@@ -2535,7 +2596,52 @@
             categories.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(item => allTasks.push({...item, categoryName: cat.name, subcategoryName: sub.name}))));
             
             let userTasks = assignments[userId] || [];
-            let filteredTasks = allTasks.filter(task => userTasks.includes(task.id));
+            let filteredTasks = allTasks.filter(task => {
+                // If completed on this date, show it
+                let isCompletedOnDate = false;
+                Object.keys(userHistory).forEach(key => {
+                    if (key.includes(date) && userHistory[key][task.id]) {
+                        if (key.split('_')[0] == userId) isCompletedOnDate = true;
+                    }
+                });
+                if (isCompletedOnDate) return true;
+
+                if (!userTasks.includes(task.id)) return false;
+
+                // Check if due
+                let showTask = false;
+                let reportDate = new Date(date);
+                let reportMonth = reportDate.getMonth() + 1;
+                let reportDay = reportDate.getDate();
+
+                if (task.type === 'daily') {
+                    showTask = true;
+                } else if (task.type === 'weekly') {
+                    if (task.dueDate) {
+                        let dueDate = new Date(task.dueDate);
+                        dueDate.setHours(0,0,0,0);
+                        let rDate = new Date(date);
+                        rDate.setHours(0,0,0,0);
+                        let daysDiff = Math.floor((dueDate - rDate) / (1000 * 60 * 60 * 24));
+                        if (daysDiff >= 0 && daysDiff <= 1) showTask = true;
+                        if (!showTask && dueDate < rDate) {
+                            let daysPassed = Math.floor((rDate - dueDate) / (1000 * 60 * 60 * 24));
+                            if ((daysPassed % 7) >= 5 || (daysPassed % 7) <= 0) showTask = true;
+                        }
+                    }
+                } else if (task.type === 'monthly') {
+                    let range = taskDateRanges[`${userId}_${task.id}`];
+                    if (range && range.start && range.end) {
+                        if (reportDay >= parseInt(range.start) && reportDay <= parseInt(range.end)) showTask = true;
+                    }
+                } else if (task.type === 'annual') {
+                    if (task.dueDate) {
+                        let taskMonth = new Date(task.dueDate).getMonth() + 1;
+                        if (reportMonth === taskMonth) showTask = true;
+                    }
+                }
+                return showTask;
+            });
             
             document.getElementById('userDailyTitle').textContent = `Daily Report - ${date}`;
             
