@@ -2347,7 +2347,7 @@
                 return;
             }
             
-            let html = '<table><thead><tr><th>Done?</th><th>ID</th><th>Task</th><th>Urdu</th><th>Category</th><th>Sub</th><th>Type</th><th>Priority</th><th>Due</th><th>Status</th></tr></thead><tbody>';
+            let html = '<table><thead><tr><th>Done?</th><th>Task</th><th>Urdu</th><th>Type</th><th>Priority</th><th>Due</th><th>Status</th></tr></thead><tbody>';
             
             todayTasks.forEach(task => {
                 let done = todayData[task.id] ? true : false;
@@ -2369,11 +2369,8 @@
                 
                 html += `<tr>
                     <td><input type="checkbox" id="chk_${task.id}" ${done ? 'checked' : ''} onchange="updateTaskStatus('${task.id}')" style="width:20px;height:20px;"></td>
-                    <td><span style="color:#7c3aed;background:#f3e8ff;padding:2px6px;border-radius:4px;">${task.id}</span></td>
                     <td class="task-name-cell">${task.name}</td>
                     <td class="urdu-text">${task.description || '-'}</td>
-                    <td>${task.categoryName}</td>
-                    <td>${task.subcategoryName}</td>
                     <td><span class="category-badge ${typeClass}">${typeName}</span></td>
                     <td>${priorityIcon}</td>
                     <td>${dueDisplay}</td>
@@ -2541,11 +2538,8 @@
                 let typeName = task.type === 'daily' ? 'Daily' : task.type === 'weekly' ? 'Weekly' : task.type === 'monthly' ? 'Monthly' : 'Annual';
                 
                 html += `<tr>
-                    <td><span style="color:#7c3aed;background:#f3e8ff;padding:2px6px;border-radius:4px;">${task.id}</span></td>
                     <td class="task-name-cell">${priorityIcon} ${task.name}</td>
                     <td class="urdu-text">${task.description || '-'}</td>
-                    <td>${task.categoryName}</td>
-                    <td>${task.subcategoryName}</td>
                     <td><span class="category-badge ${typeClass}">${typeName}</span></td>
                     <td><span class="status-badge ${isCompleted ? 'status-completed' : 'status-pending'}">${isCompleted ? '✓' : '✗'}</span></td>
                     <td>${completedTime}</td>

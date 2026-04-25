@@ -14,7 +14,7 @@
                 </div>
                 <div id="userDailyPrint">
                     <h3 style="text-align: center;" id="userDailyTitle">Daily Report</h3>
-                    <div class="table-container"><table id="userDailyTable"><thead><tr><th>Task ID</th><th>Task Name</th><th>Urdu</th><th>Category</th><th>Subcategory</th><th>Type</th><th>Status</th><th>Time</th></tr></thead><tbody id="userDailyTableBody"></tbody></table></div>
+                    <div class="table-container"><table id="userDailyTable"><thead><tr><th>Task Name</th><th>Urdu</th><th>Type</th><th>Status</th><th>Time</th></tr></thead><tbody id="userDailyTableBody"></tbody></table></div>
                 </div>
             </div>
 
