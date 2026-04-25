@@ -2282,6 +2282,17 @@
             
             let todayTasks = [];
             
+            // Get all task IDs completed by this user in the current month
+            let completedThisMonth = [];
+            let monthPrefix = `${currentUser.id}_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            Object.keys(userHistory).forEach(key => {
+                if (key.startsWith(monthPrefix)) {
+                    Object.keys(userHistory[key]).forEach(tid => {
+                        if (tid !== '_note') completedThisMonth.push(String(tid));
+                    });
+                }
+            });
+            
             allAssignedTasks.forEach(task => {
                 let showTask = false;
                 let todayTime = today.getTime();
@@ -2321,7 +2332,10 @@
                         let currentDay = today.getDate();
                         
                         if (currentDay >= startDay && currentDay <= endDay) {
-                            showTask = true;
+                            // Only show if not already completed this month
+                            if (!completedThisMonth.includes(String(task.id))) {
+                                showTask = true;
+                            }
                         }
                     }
                 }
@@ -2329,7 +2343,10 @@
                     if (task.dueDate) {
                         let taskMonth = new Date(task.dueDate).getMonth() + 1;
                         if (todayMonth === taskMonth) {
-                            showTask = true;
+                            // Only show if not already completed this month
+                            if (!completedThisMonth.includes(String(task.id))) {
+                                showTask = true;
+                            }
                         }
                     }
                 }
@@ -2405,6 +2422,7 @@
             });
             
             localStorage.setItem('userHistory', JSON.stringify(userHistory));
+            loadUserTasks();
         }
 
         async function saveUserTasks() {
