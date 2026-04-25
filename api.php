@@ -288,7 +288,7 @@ function getCategories($db)
 function getUsers($db)
 {
     try {
-        $stmt = $db->query("SELECT id, username, email, name, designation, user_type as type FROM users ORDER BY id");
+        $stmt = $db->query("SELECT id, username, email, password, name, designation, user_type as type FROM users ORDER BY id");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'users' => $users]);
     } catch (Exception $e) {
