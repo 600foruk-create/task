@@ -2558,8 +2558,12 @@
                 
                 Object.keys(userHistory).forEach(key => {
                     if (key.includes(date) && userHistory[key][task.id]) {
-                        isCompleted = true;
                         let uid = key.split('_')[0];
+                        
+                        // If specific user is selected, only show their completion
+                        if (userId !== 'all' && userId != uid) return;
+                        
+                        isCompleted = true;
                         let user = users.find(u => u.id == uid);
                         if (user) completedBy.push(user.name);
                         completedTime = userHistory[key][task.id].time || '-';
@@ -2652,6 +2656,9 @@
                 
                 Object.keys(userHistory).forEach(key => { 
                     if (key.includes(date) && userHistory[key][task.id]) { 
+                        let uid = key.split('_')[0];
+                        if (uid != userId) return;
+                        
                         isCompleted = true; 
                         completedTime = userHistory[key][task.id].time || '-'; 
                     } 
