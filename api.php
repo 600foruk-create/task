@@ -170,10 +170,10 @@ function sendOTP($db)
     try {
         // First check if password_resets table exists, if not create it
         try {
-            $db->query("SELECT 1 FROM password_resets LIMIT 1");
+            $db->query("SELECT 1 FROM task_password_resets LIMIT 1");
         } catch (Exception $e) {
             // Table doesn't exist, create it
-            $db->exec("CREATE TABLE IF NOT EXISTS password_resets (
+            $db->exec("CREATE TABLE IF NOT EXISTS task_password_resets (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 email VARCHAR(100) NOT NULL,
                 otp VARCHAR(6) NOT NULL,
@@ -183,7 +183,7 @@ function sendOTP($db)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
 
-        $stmt = $db->prepare("SELECT id, phone FROM users WHERE email = ?");
+        $stmt = $db->prepare("SELECT id, phone FROM task_users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -195,10 +195,10 @@ function sendOTP($db)
         $otp = rand(100000, 999999);
         $expires = date('Y-m-d H:i:s', strtotime('+10 minutes'));
 
-        $stmt = $db->prepare("DELETE FROM password_resets WHERE email = ?");
+        $stmt = $db->prepare("DELETE FROM task_password_resets WHERE email = ?");
         $stmt->execute([$email]);
 
-        $stmt = $db->prepare("INSERT INTO password_resets (email, otp, expires_at) VALUES (?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO task_password_resets (email, otp, expires_at) VALUES (?, ?, ?)");
         $stmt->execute([$email, $otp, $expires]);
 
         $emailSent = sendEmailOTP($email, $otp);
@@ -220,12 +220,12 @@ function verifyOTP($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT * FROM password_resets WHERE email = ? AND otp = ? AND used = 0 AND expires_at > NOW() ORDER BY id DESC LIMIT 1");
+        $stmt = $db->prepare("SELECT * FROM task_password_resets WHERE email = ? AND otp = ? AND used = 0 AND expires_at > NOW() ORDER BY id DESC LIMIT 1");
         $stmt->execute([$data['email'], $data['otp']]);
 
         if ($stmt->rowCount() > 0) {
             $reset = $stmt->fetch(PDO::FETCH_ASSOC);
-            $stmt = $db->prepare("UPDATE password_resets SET used = 1 WHERE id = ?");
+            $stmt = $db->prepare("UPDATE task_password_resets SET used = 1 WHERE id = ?");
             $stmt->execute([$reset['id']]);
 
             echo json_encode(['success' => true]);
@@ -241,18 +241,18 @@ function verifyOTP($db)
 function getCategories($db)
 {
     try {
-        $stmt = $db->query("SELECT * FROM categories ORDER BY id");
+        $stmt = $db->query("SELECT * FROM task_categories ORDER BY id");
         $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $result = [];
         foreach ($categories as $cat) {
-            $stmt = $db->prepare("SELECT * FROM subcategories WHERE category_id = ? ORDER BY id");
+            $stmt = $db->prepare("SELECT * FROM task_subcategories WHERE category_id = ? ORDER BY id");
             $stmt->execute([$cat['id']]);
             $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $subs = [];
             foreach ($subcategories as $sub) {
-                $stmt = $db->prepare("SELECT * FROM tasks WHERE subcategory_id = ? ORDER BY code");
+                $stmt = $db->prepare("SELECT * FROM task_tasks WHERE subcategory_id = ? ORDER BY code");
                 $stmt->execute([$sub['id']]);
                 $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -315,11 +315,11 @@ function getUsers($db)
         $indices = ['email', 'username', 'email_2', 'username_2'];
         foreach ($indices as $index) {
             try {
-                $db->exec("ALTER TABLE users DROP INDEX " . $index);
+                $db->exec("ALTER TABLE task_users DROP INDEX " . $index);
             } catch (Exception $e) {}
         }
 
-        $stmt = $db->query("SELECT id, username, email, password, name, designation, user_type as type FROM users ORDER BY id");
+        $stmt = $db->query("SELECT id, username, email, password, name, designation, user_type as type FROM task_users ORDER BY id");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'users' => $users]);
     } catch (Exception $e) {
@@ -331,7 +331,7 @@ function getUsers($db)
 function getAssignments($db)
 {
     try {
-        $stmt = $db->query("SELECT * FROM assignments");
+        $stmt = $db->query("SELECT * FROM task_assignments");
         $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $formatted = [];
@@ -340,7 +340,7 @@ function getAssignments($db)
                 $formatted[$a['user_id']] = [];
             }
 
-            $stmt2 = $db->prepare("SELECT code FROM tasks WHERE id = ?");
+            $stmt2 = $db->prepare("SELECT code FROM task_tasks WHERE id = ?");
             $stmt2->execute([$a['task_id']]);
             $task = $stmt2->fetch(PDO::FETCH_ASSOC);
             if ($task) {
@@ -368,7 +368,7 @@ function getHistory($db)
                 $formatted[$key] = [];
             }
 
-            $stmt2 = $db->prepare("SELECT code FROM tasks WHERE id = ?");
+            $stmt2 = $db->prepare("SELECT code FROM task_tasks WHERE id = ?");
             $stmt2->execute([$h['task_id']]);
             $task = $stmt2->fetch(PDO::FETCH_ASSOC);
             if ($task) {
@@ -378,7 +378,7 @@ function getHistory($db)
             }
         }
 
-        $stmt = $db->query("SELECT * FROM daily_notes");
+        $stmt = $db->query("SELECT * FROM task_daily_notes");
         $notes = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($notes as $n) {
             $key = $n['user_id'] . '_' . $n['note_date'];
@@ -426,7 +426,7 @@ function getTaskDateRanges($db)
 
         $formatted = [];
         foreach ($ranges as $r) {
-            $stmt2 = $db->prepare("SELECT code FROM tasks WHERE id = ?");
+            $stmt2 = $db->prepare("SELECT code FROM task_tasks WHERE id = ?");
             $stmt2->execute([$r['task_id']]);
             $task = $stmt2->fetch(PDO::FETCH_ASSOC);
             if ($task) {
@@ -461,7 +461,7 @@ function saveUser($db)
 
     try {
         if (isset($data['id']) && $data['id'] > 0) {
-            $stmt = $db->prepare("UPDATE users SET name=?, username=?, email=?, password=?, designation=?, user_type=? WHERE id=?");
+            $stmt = $db->prepare("UPDATE task_users SET name=?, username=?, email=?, password=?, designation=?, user_type=? WHERE id=?");
             $stmt->execute([$data['name'], $data['username'], $data['email'], $data['password'], $data['designation'], $data['type'], $data['id']]);
             $newId = $data['id'];
         } else {
@@ -470,7 +470,7 @@ function saveUser($db)
             safeAddColumn($db, 'users', 'user_type', "VARCHAR(50) DEFAULT 'user'");
 
             // Find the smallest available ID
-            $stmt = $db->query("SELECT id FROM users ORDER BY id");
+            $stmt = $db->query("SELECT id FROM task_users ORDER BY id");
             $existingIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
             $newId = 1;
@@ -478,11 +478,11 @@ function saveUser($db)
                 $newId++;
             }
 
-            $stmt = $db->prepare("INSERT INTO users (id, name, username, email, password, designation, user_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO task_users (id, name, username, email, password, designation, user_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$newId, $data['name'], $data['username'], $data['email'], $data['password'], $data['designation'], $data['type']]);
         }
 
-        $stmt = $db->prepare("SELECT id, username, email, name, designation, user_type as type, password FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, username, email, name, designation, user_type as type, password FROM task_users WHERE id = ?");
         $stmt->execute([$newId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -501,7 +501,7 @@ function deleteUser($db)
         $db->beginTransaction();
 
         // First delete all related records
-        $stmt = $db->prepare("DELETE FROM assignments WHERE user_id = ?");
+        $stmt = $db->prepare("DELETE FROM task_assignments WHERE user_id = ?");
         $stmt->execute([$data['id']]);
 
         $stmt = $db->prepare("DELETE FROM task_history WHERE user_id = ?");
@@ -510,11 +510,11 @@ function deleteUser($db)
         $stmt = $db->prepare("DELETE FROM task_date_ranges WHERE user_id = ?");
         $stmt->execute([$data['id']]);
 
-        $stmt = $db->prepare("DELETE FROM daily_notes WHERE user_id = ?");
+        $stmt = $db->prepare("DELETE FROM task_daily_notes WHERE user_id = ?");
         $stmt->execute([$data['id']]);
 
         // Then delete the user
-        $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+        $stmt = $db->prepare("DELETE FROM task_users WHERE id = ?");
         $stmt->execute([$data['id']]);
 
         $db->commit();
@@ -531,14 +531,14 @@ function saveCategory($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT id FROM categories WHERE code = ?");
+        $stmt = $db->prepare("SELECT id FROM task_categories WHERE code = ?");
         $stmt->execute([$data['id']]);
 
         if ($stmt->rowCount() > 0) {
-            $stmt = $db->prepare("UPDATE categories SET name = ?, description = ? WHERE code = ?");
+            $stmt = $db->prepare("UPDATE task_categories SET name = ?, description = ? WHERE code = ?");
             $result = $stmt->execute([$data['name'], $data['description'] ?? '', $data['id']]);
         } else {
-            $stmt = $db->prepare("INSERT INTO categories (code, name, description) VALUES (?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO task_categories (code, name, description) VALUES (?, ?, ?)");
             $result = $stmt->execute([$data['id'], $data['name'], $data['description'] ?? '']);
         }
 
@@ -558,7 +558,7 @@ function updateCategory($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("UPDATE categories SET name = ?, description = ? WHERE code = ?");
+        $stmt = $db->prepare("UPDATE task_categories SET name = ?, description = ? WHERE code = ?");
         $stmt->execute([$data['name'], $data['description'] ?? '', $data['id']]);
 
         echo json_encode(['success' => true]);
@@ -573,7 +573,7 @@ function deleteCategory($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("DELETE FROM categories WHERE code = ?");
+        $stmt = $db->prepare("DELETE FROM task_categories WHERE code = ?");
         $stmt->execute([$data['id']]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
@@ -587,7 +587,7 @@ function saveSubcategory($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT id FROM categories WHERE code = ?");
+        $stmt = $db->prepare("SELECT id FROM task_categories WHERE code = ?");
         $stmt->execute([$data['category_id']]);
         $cat = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -599,7 +599,7 @@ function saveSubcategory($db)
         $category_id = $cat['id'];
 
         $baseCode = $data['category_id'];
-        $stmt = $db->prepare("SELECT code FROM subcategories WHERE category_id = ? ORDER BY id DESC LIMIT 1");
+        $stmt = $db->prepare("SELECT code FROM task_subcategories WHERE category_id = ? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$category_id]);
         $last = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -612,7 +612,7 @@ function saveSubcategory($db)
 
         $code = $baseCode . str_pad($newNum, 2, '0', STR_PAD_LEFT);
 
-        $stmt = $db->prepare("INSERT INTO subcategories (category_id, name, description, code, type) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO task_subcategories (category_id, name, description, code, type) VALUES (?, ?, ?, ?, ?)");
         $result = $stmt->execute([$category_id, $data['name'], $data['description'] ?? '', $code, $data['type'] ?? 'daily']);
 
         if ($result) {
@@ -631,7 +631,7 @@ function updateSubcategory($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("UPDATE subcategories SET name = ?, description = ? WHERE code = ?");
+        $stmt = $db->prepare("UPDATE task_subcategories SET name = ?, description = ? WHERE code = ?");
         $stmt->execute([$data['name'], $data['description'] ?? '', $data['id']]);
 
         echo json_encode(['success' => true]);
@@ -646,7 +646,7 @@ function deleteSubcategory($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("DELETE FROM subcategories WHERE code = ?");
+        $stmt = $db->prepare("DELETE FROM task_subcategories WHERE code = ?");
         $stmt->execute([$data['id']]);
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
@@ -660,7 +660,7 @@ function saveTask($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT id, code FROM subcategories WHERE code = ?");
+        $stmt = $db->prepare("SELECT id, code FROM task_subcategories WHERE code = ?");
         $stmt->execute([$data['subcategory_id']]);
         $sub = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -672,7 +672,7 @@ function saveTask($db)
         $subcategory_id = $sub['id'];
         $subCode = $sub['code'];
 
-        $stmt = $db->prepare("SELECT MAX(CAST(SUBSTRING(code, -4) AS UNSIGNED)) as max_num FROM tasks WHERE subcategory_id = ?");
+        $stmt = $db->prepare("SELECT MAX(CAST(SUBSTRING(code, -4) AS UNSIGNED)) as max_num FROM task_tasks WHERE subcategory_id = ?");
         $stmt->execute([$subcategory_id]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $maxNum = $result['max_num'] ?? 0;
@@ -686,7 +686,7 @@ function saveTask($db)
         $inactive = isset($data['inactive']) && $data['inactive'] ? 1 : 0;
         $type = $data['type'] ?? 'daily';
 
-        $stmt = $db->prepare("INSERT INTO tasks (subcategory_id, name, urdu, type, code, due_date, estimated_time, priority, inactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO task_tasks (subcategory_id, name, urdu, type, code, due_date, estimated_time, priority, inactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $result = $stmt->execute([
             $subcategory_id,
             $data['name'],
@@ -721,7 +721,7 @@ function updateTask($db)
         $inactive = isset($data['inactive']) && $data['inactive'] ? 1 : 0;
         $type = $data['type'] ?? 'daily';
 
-        $stmt = $db->prepare("UPDATE tasks SET name = ?, urdu = ?, type = ?, due_date = ?, estimated_time = ?, priority = ?, inactive = ? WHERE code = ?");
+        $stmt = $db->prepare("UPDATE task_tasks SET name = ?, urdu = ?, type = ?, due_date = ?, estimated_time = ?, priority = ?, inactive = ? WHERE code = ?");
         $stmt->execute([
             $data['name'],
             $data['description'],
@@ -745,14 +745,14 @@ function deleteTask($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+        $stmt = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
         $stmt->execute([$data['id']]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($task) {
             $taskId = $task['id'];
 
-            $stmt = $db->prepare("DELETE FROM assignments WHERE task_id = ?");
+            $stmt = $db->prepare("DELETE FROM task_assignments WHERE task_id = ?");
             $stmt->execute([$taskId]);
 
             $stmt = $db->prepare("DELETE FROM task_history WHERE task_id = ?");
@@ -762,7 +762,7 @@ function deleteTask($db)
             $stmt->execute([$taskId]);
         }
 
-        $stmt = $db->prepare("DELETE FROM tasks WHERE code = ?");
+        $stmt = $db->prepare("DELETE FROM task_tasks WHERE code = ?");
         $stmt->execute([$data['id']]);
 
         echo json_encode(['success' => true]);
@@ -777,7 +777,7 @@ function saveAssignment($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+        $stmt = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
         $stmt->execute([$data['task_id']]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -793,31 +793,31 @@ function saveAssignment($db)
             $dueDate = $data['due_date'] ?? null;
 
             // Check if assignment exists
-            $stmt = $db->prepare("SELECT id FROM assignments WHERE user_id = ? AND task_id = ?");
+            $stmt = $db->prepare("SELECT id FROM task_assignments WHERE user_id = ? AND task_id = ?");
             $stmt->execute([$data['user_id'], $taskId]);
 
             if ($stmt->rowCount() > 0) {
                 // Update existing
-                $stmt = $db->prepare("UPDATE assignments SET assigned_date = ?, due_date = ? WHERE user_id = ? AND task_id = ?");
+                $stmt = $db->prepare("UPDATE task_assignments SET assigned_date = ?, due_date = ? WHERE user_id = ? AND task_id = ?");
                 $stmt->execute([$assignedDate, $dueDate, $data['user_id'], $taskId]);
             } else {
                 // Insert new
-                $stmt = $db->prepare("INSERT INTO assignments (user_id, task_id, assigned_date, due_date) VALUES (?, ?, ?, ?)");
+                $stmt = $db->prepare("INSERT INTO task_assignments (user_id, task_id, assigned_date, due_date) VALUES (?, ?, ?, ?)");
                 $stmt->execute([$data['user_id'], $taskId, $assignedDate, $dueDate]);
             }
 
             // Also update task's due date if provided
             if ($dueDate) {
-                $stmt = $db->prepare("UPDATE tasks SET due_date = ? WHERE id = ?");
+                $stmt = $db->prepare("UPDATE task_tasks SET due_date = ? WHERE id = ?");
                 $stmt->execute([$dueDate, $taskId]);
             }
         } else {
             // Delete assignment
-            $stmt = $db->prepare("DELETE FROM assignments WHERE user_id = ? AND task_id = ?");
+            $stmt = $db->prepare("DELETE FROM task_assignments WHERE user_id = ? AND task_id = ?");
             $stmt->execute([$data['user_id'], $taskId]);
 
             // Also remove due date from task
-            $stmt = $db->prepare("UPDATE tasks SET due_date = NULL WHERE id = ?");
+            $stmt = $db->prepare("UPDATE task_tasks SET due_date = NULL WHERE id = ?");
             $stmt->execute([$taskId]);
         }
 
@@ -837,9 +837,9 @@ function saveAllAssignments($db)
 
         $assignedDate = date('Y-m-d');
 
-        $stmtTask = $db->prepare("SELECT id FROM tasks WHERE code = ?");
-        $stmtInsert = $db->prepare("INSERT INTO assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
-        $stmtCheck = $db->prepare("SELECT id FROM assignments WHERE user_id = ? AND task_id = ?");
+        $stmtTask = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
+        $stmtInsert = $db->prepare("INSERT INTO task_assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
+        $stmtCheck = $db->prepare("SELECT id FROM task_assignments WHERE user_id = ? AND task_id = ?");
 
         foreach ($assignments as $userId => $taskCodes) {
             foreach ($taskCodes as $taskCode) {
@@ -895,7 +895,7 @@ function saveDateRange($db)
         }
 
         // First get the task ID from the task code
-        $stmt = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+        $stmt = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
         $stmt->execute([$data['task_id']]);
         $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -929,11 +929,11 @@ function saveDateRange($db)
         }
 
         // Also create assignment if not exists
-        $stmt = $db->prepare("SELECT id FROM assignments WHERE user_id = ? AND task_id = ?");
+        $stmt = $db->prepare("SELECT id FROM task_assignments WHERE user_id = ? AND task_id = ?");
         $stmt->execute([$data['user_id'], $taskId]);
 
         if ($stmt->rowCount() == 0) {
-            $stmt = $db->prepare("INSERT INTO assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO task_assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
             $stmt->execute([$data['user_id'], $taskId, date('Y-m-d')]);
         }
 
@@ -963,7 +963,7 @@ function saveHistory($db)
         if (is_array($tasks)) {
             foreach ($tasks as $taskCode => $info) {
                 if ($taskCode != '_note' && is_array($info)) {
-                    $stmt2 = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+                    $stmt2 = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
                     $stmt2->execute([$taskCode]);
                     $task = $stmt2->fetch(PDO::FETCH_ASSOC);
                     if ($task) {
@@ -975,18 +975,18 @@ function saveHistory($db)
         }
 
         if (is_array($tasks) && isset($tasks['_note'])) {
-            $stmt = $db->prepare("SELECT id FROM daily_notes WHERE user_id = ? AND note_date = ?");
+            $stmt = $db->prepare("SELECT id FROM task_daily_notes WHERE user_id = ? AND note_date = ?");
             $stmt->execute([$userId, $date]);
 
             if ($stmt->rowCount() > 0) {
-                $stmt = $db->prepare("UPDATE daily_notes SET note = ? WHERE user_id = ? AND note_date = ?");
+                $stmt = $db->prepare("UPDATE task_daily_notes SET note = ? WHERE user_id = ? AND note_date = ?");
                 $stmt->execute([$tasks['_note'], $userId, $date]);
             } else {
-                $stmt = $db->prepare("INSERT INTO daily_notes (user_id, note_date, note) VALUES (?, ?, ?)");
+                $stmt = $db->prepare("INSERT INTO task_daily_notes (user_id, note_date, note) VALUES (?, ?, ?)");
                 $stmt->execute([$userId, $date, $tasks['_note']]);
             }
         } else {
-            $stmt = $db->prepare("DELETE FROM daily_notes WHERE user_id = ? AND note_date = ?");
+            $stmt = $db->prepare("DELETE FROM task_daily_notes WHERE user_id = ? AND note_date = ?");
             $stmt->execute([$userId, $date]);
         }
 
@@ -1002,7 +1002,7 @@ function login($db)
     $data = json_decode($_POST['data'] ?? '{}', true);
 
     try {
-        $stmt = $db->prepare("SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?");
+        $stmt = $db->prepare("SELECT * FROM task_users WHERE (username = ? OR email = ?) AND password = ?");
         $stmt->execute([$data['username'], $data['username'], $data['password']]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1026,17 +1026,17 @@ function restoreCategories($db)
     try {
         $db->beginTransaction();
 
-        $db->exec("DELETE FROM tasks");
-        $db->exec("DELETE FROM subcategories");
-        $db->exec("DELETE FROM categories");
+        $db->exec("DELETE FROM task_tasks");
+        $db->exec("DELETE FROM task_subcategories");
+        $db->exec("DELETE FROM task_categories");
 
         foreach ($data['categories'] as $cat) {
-            $stmt = $db->prepare("INSERT INTO categories (code, name, description) VALUES (?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO task_categories (code, name, description) VALUES (?, ?, ?)");
             $stmt->execute([$cat['id'], $cat['name'], $cat['description'] ?? '']);
             $catId = $db->lastInsertId();
 
             foreach ($cat['subcategories'] as $sub) {
-                $stmt = $db->prepare("INSERT INTO subcategories (category_id, name, description, code, type) VALUES (?, ?, ?, ?, ?)");
+                $stmt = $db->prepare("INSERT INTO task_subcategories (category_id, name, description, code, type) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$catId, $sub['name'], $sub['description'] ?? '', $sub['id'], $sub['type'] ?? 'daily']);
                 $subId = $db->lastInsertId();
 
@@ -1047,7 +1047,7 @@ function restoreCategories($db)
                     $inactive = isset($item['inactive']) && $item['inactive'] ? 1 : 0;
                     $type = $item['type'] ?? 'daily';
 
-                    $stmt = $db->prepare("INSERT INTO tasks (subcategory_id, name, urdu, type, code, due_date, estimated_time, priority, inactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt = $db->prepare("INSERT INTO task_tasks (subcategory_id, name, urdu, type, code, due_date, estimated_time, priority, inactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([$subId, $item['name'], $item['description'] ?? '', $type, $item['id'], $dueDate, $estimatedTime, $priority, $inactive]);
                 }
             }
@@ -1070,11 +1070,11 @@ function restoreUsers($db)
         $db->beginTransaction();
 
         // Sab users delete karo (admin bhi)
-        $db->exec("DELETE FROM users");
+        $db->exec("DELETE FROM task_users");
 
         // Saare users restore karo
         foreach ($data['users'] as $user) {
-            $stmt = $db->prepare("INSERT INTO users (id, name, username, email, password, designation, user_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO task_users (id, name, username, email, password, designation, user_type) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $user['id'],
                 $user['name'],
@@ -1102,14 +1102,14 @@ function restoreHistory($db)
     try {
         $db->beginTransaction();
         $db->exec("DELETE FROM task_history");
-        $db->exec("DELETE FROM daily_notes");
+        $db->exec("DELETE FROM task_daily_notes");
 
         foreach ($data['history'] as $key => $tasks) {
             list($userId, $date) = explode('_', $key);
 
             foreach ($tasks as $taskCode => $info) {
                 if ($taskCode != '_note') {
-                    $stmt = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+                    $stmt = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
                     $stmt->execute([$taskCode]);
                     $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1118,7 +1118,7 @@ function restoreHistory($db)
                         $stmt->execute([$userId, $task['id'], $date, $info['time'] ?? '00:00:00']);
                     }
                 } else {
-                    $stmt = $db->prepare("INSERT INTO daily_notes (user_id, note_date, note) VALUES (?, ?, ?)");
+                    $stmt = $db->prepare("INSERT INTO task_daily_notes (user_id, note_date, note) VALUES (?, ?, ?)");
                     $stmt->execute([$userId, $date, $info]);
                 }
             }
@@ -1139,17 +1139,17 @@ function restoreAssignments($db)
 
     try {
         $db->beginTransaction();
-        $db->exec("DELETE FROM assignments");
+        $db->exec("DELETE FROM task_assignments");
         $db->exec("DELETE FROM task_date_ranges");
 
         foreach ($data['assignments'] as $userId => $tasks) {
             foreach ($tasks as $taskCode) {
-                $stmt = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+                $stmt = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
                 $stmt->execute([$taskCode]);
                 $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($task) {
-                    $stmt = $db->prepare("INSERT INTO assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
+                    $stmt = $db->prepare("INSERT INTO task_assignments (user_id, task_id, assigned_date) VALUES (?, ?, ?)");
                     $stmt->execute([$userId, $task['id'], date('Y-m-d')]);
 
                     // Check if this is a monthly task and has date range
@@ -1183,10 +1183,10 @@ function getCompanies($db)
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        // Sync from company_settings if companies table is empty
+        // Sync from task_settings if companies table is empty
         $check = $db->query("SELECT COUNT(*) FROM companies")->fetchColumn();
         if ($check == 0) {
-            $stmt = $db->query("SELECT setting_key, setting_value FROM company_settings WHERE setting_key IN ('name', 'address', 'phone', 'email')");
+            $stmt = $db->query("SELECT setting_key, setting_value FROM task_settings WHERE setting_key IN ('name', 'address', 'phone', 'email')");
             $current = [];
             while($row = $stmt->fetch(PDO::FETCH_ASSOC)) $current[$row['setting_key']] = $row['setting_value'];
             
@@ -1268,7 +1268,7 @@ function restoreDateRanges($db)
             array_shift($parts); // Remove user_id
             $taskCode = implode('_', $parts); // Join remaining parts as task code
 
-            $stmt = $db->prepare("SELECT id FROM tasks WHERE code = ?");
+            $stmt = $db->prepare("SELECT id FROM task_tasks WHERE code = ?");
             $stmt->execute([$taskCode]);
             $task = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1291,14 +1291,14 @@ function getCompanySettings($db)
 {
     try {
         // Create table if not exists
-        $db->exec("CREATE TABLE IF NOT EXISTS company_settings (
+        $db->exec("CREATE TABLE IF NOT EXISTS task_settings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             setting_key VARCHAR(100) NOT NULL UNIQUE,
             setting_value TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        $stmt = $db->query("SELECT setting_key, setting_value FROM company_settings");
+        $stmt = $db->query("SELECT setting_key, setting_value FROM task_settings");
         $settings = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $settings[$row['setting_key']] = $row['setting_value'];
@@ -1317,7 +1317,7 @@ function saveCompanySettings($db)
 
     try {
         // Create table if not exists
-        $db->exec("CREATE TABLE IF NOT EXISTS company_settings (
+        $db->exec("CREATE TABLE IF NOT EXISTS task_settings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             setting_key VARCHAR(100) NOT NULL UNIQUE,
             setting_value TEXT,
@@ -1330,7 +1330,7 @@ function saveCompanySettings($db)
         $settings = ['name', 'address', 'phone', 'email', 'footer'];
         foreach ($settings as $key) {
             if (isset($data[$key]) && $data[$key] !== '') {
-                $stmt = $db->prepare("INSERT INTO company_settings (setting_key, setting_value) 
+                $stmt = $db->prepare("INSERT INTO task_settings (setting_key, setting_value) 
                                        VALUES (?, ?) 
                                        ON DUPLICATE KEY UPDATE setting_value = ?");
                 $stmt->execute([$key, $data[$key], $data[$key]]);
@@ -1370,14 +1370,14 @@ function saveCompanyLogo($db)
             $logoUrl = $protocol . $_SERVER['HTTP_HOST'] . $dir . '/' . $filePath;
 
             // Create table if not exists
-            $db->exec("CREATE TABLE IF NOT EXISTS company_settings (
+            $db->exec("CREATE TABLE IF NOT EXISTS task_settings (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 setting_key VARCHAR(100) NOT NULL UNIQUE,
                 setting_value TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-            $stmt = $db->prepare("INSERT INTO company_settings (setting_key, setting_value) 
+            $stmt = $db->prepare("INSERT INTO task_settings (setting_key, setting_value) 
                                    VALUES ('logo', ?) 
                                    ON DUPLICATE KEY UPDATE setting_value = ?");
             $stmt->execute([$logoUrl, $logoUrl]);
