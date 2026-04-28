@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Database connection with your credentials
 try {
-    $db = new PDO('mysql:host=localhost;dbname=u245697138_spare;charset=utf8', 'u245697138_spare_user', 'Seastone123@$');
+    $db = new PDO('mysql:host=localhost;dbname=u245697138_softifyx;charset=utf8', 'u245697138_softifyx', 'Suhailahmad@123');
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Exception $e) {
     die(json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]));
@@ -113,6 +113,15 @@ switch ($action) {
         restoreDateRanges($db);
         break;
     // ========== NEW COMPANY SETTINGS ACTIONS ==========
+    case 'getCompanies':
+        getCompanies($db);
+        break;
+    case 'saveCompany':
+        saveCompany($db);
+        break;
+    case 'deleteCompany':
+        deleteCompany($db);
+        break;
     case 'getCompanySettings':
         getCompanySettings($db);
         break;
@@ -285,9 +294,31 @@ function getCategories($db)
 }
 
 // ========== GET USERS ==========
+// Helper to safely add columns
+function safeAddColumn($db, $table, $column, $definition) {
+    try {
+        $stmt = $db->query("SHOW COLUMNS FROM `$table` LIKE '$column'");
+        if ($stmt->rowCount() == 0) {
+            $db->exec("ALTER TABLE `$table` ADD `$column` $definition");
+        }
+    } catch (Exception $e) {}
+}
+
 function getUsers($db)
 {
     try {
+        // Ensure columns exist safely
+        safeAddColumn($db, 'users', 'designation', "VARCHAR(100) DEFAULT ''");
+        safeAddColumn($db, 'users', 'user_type', "VARCHAR(50) DEFAULT 'user'");
+        
+        // Drop unique constraints
+        $indices = ['email', 'username', 'email_2', 'username_2'];
+        foreach ($indices as $index) {
+            try {
+                $db->exec("ALTER TABLE users DROP INDEX " . $index);
+            } catch (Exception $e) {}
+        }
+
         $stmt = $db->query("SELECT id, username, email, password, name, designation, user_type as type FROM users ORDER BY id");
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'users' => $users]);
@@ -434,6 +465,10 @@ function saveUser($db)
             $stmt->execute([$data['name'], $data['username'], $data['email'], $data['password'], $data['designation'], $data['type'], $data['id']]);
             $newId = $data['id'];
         } else {
+            // Ensure columns exist before insert
+            safeAddColumn($db, 'users', 'designation', "VARCHAR(100) DEFAULT ''");
+            safeAddColumn($db, 'users', 'user_type', "VARCHAR(50) DEFAULT 'user'");
+
             // Find the smallest available ID
             $stmt = $db->query("SELECT id FROM users ORDER BY id");
             $existingIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -1135,6 +1170,71 @@ function restoreAssignments($db)
     }
 }
 
+// ========== GET COMPANIES LIST ==========
+function getCompanies($db)
+{
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS companies (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            address TEXT,
+            phone VARCHAR(50),
+            email VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Sync from company_settings if companies table is empty
+        $check = $db->query("SELECT COUNT(*) FROM companies")->fetchColumn();
+        if ($check == 0) {
+            $stmt = $db->query("SELECT setting_key, setting_value FROM company_settings WHERE setting_key IN ('name', 'address', 'phone', 'email')");
+            $current = [];
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) $current[$row['setting_key']] = $row['setting_value'];
+            
+            if (!empty($current['name'])) {
+                $stmt = $db->prepare("INSERT INTO companies (name, address, phone, email) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$current['name'], $current['address'] ?? '', $current['phone'] ?? '', $current['email'] ?? '']);
+            }
+        }
+
+        $stmt = $db->query("SELECT * FROM companies ORDER BY id");
+        $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'companies' => $companies]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// ========== SAVE COMPANY TO LIST ==========
+function saveCompany($db)
+{
+    $data = json_decode($_POST['data'] ?? '{}', true);
+    try {
+        if (isset($data['id']) && $data['id'] > 0) {
+            $stmt = $db->prepare("UPDATE companies SET name=?, address=?, phone=?, email=? WHERE id=?");
+            $stmt->execute([$data['name'], $data['address'], $data['phone'], $data['email'], $data['id']]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO companies (name, address, phone, email) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$data['name'], $data['address'], $data['phone'], $data['email']]);
+        }
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
+// ========== DELETE COMPANY FROM LIST ==========
+function deleteCompany($db)
+{
+    $data = json_decode($_POST['data'] ?? '{}', true);
+    try {
+        $stmt = $db->prepare("DELETE FROM companies WHERE id = ?");
+        $stmt->execute([$data['id']]);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+}
+
 // ========== RESTORE DATE RANGES ==========
 function restoreDateRanges($db)
 {
@@ -1264,9 +1364,10 @@ function saveCompanyLogo($db)
         $filePath = $uploadDir . $fileName;
 
         if (move_uploaded_file($_FILES['logo']['tmp_name'], $filePath)) {
-            // Full URL banao
-            $protocol = isset($_SERVER['HTTPS']) ? 'https://' : 'http://';
-            $logoUrl = $protocol . $_SERVER['HTTP_HOST'] . '/' . $filePath;
+            // Full URL banao - Corrected to include subdirectory task1
+            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+            $dir = dirname($_SERVER['PHP_SELF']); // This will get '/task1'
+            $logoUrl = $protocol . $_SERVER['HTTP_HOST'] . $dir . '/' . $filePath;
 
             // Create table if not exists
             $db->exec("CREATE TABLE IF NOT EXISTS company_settings (

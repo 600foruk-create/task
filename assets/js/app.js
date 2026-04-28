@@ -1,5 +1,5 @@
         // ========== CONFIGURATION ==========
-        const API_URL = 'https://palegoldenrod-dotterel-292319.hostingersite.com/api.php';
+        const API_URL = 'api.php';
 
         // ========== GLOBAL VARIABLES ==========
         let categories = [];
@@ -73,16 +73,18 @@
 
         // ========== COMPANY FUNCTIONS ==========
 
-        // Load companies from localStorage
-        function loadCompanies() {
-            const saved = localStorage.getItem('companies');
-            if (saved) {
-                companies = JSON.parse(saved);
-            } else {
-                companies = [
-                    { id: 1, name: 'Seastone Pipe Industry', address: 'Main Office', phone: '', email: '' }
-                ];
-                localStorage.setItem('companies', JSON.stringify(companies));
+        // Load companies from server
+        async function loadCompanies() {
+            try {
+                const response = await fetch(API_URL + '?action=getCompanies');
+                const data = await response.json();
+                if (data.success) {
+                    companies = data.companies;
+                    localStorage.setItem('companies', JSON.stringify(companies));
+                }
+            } catch(e) {
+                const saved = localStorage.getItem('companies');
+                if (saved) companies = JSON.parse(saved);
             }
             loadCompanyListTable();
         }
@@ -117,52 +119,50 @@
             document.getElementById('companyListTable').innerHTML = html;
         }
 
-        // Add new company
-        function addCompany() {
+        // Add/Update company
+        async function addCompany() {
             const name = document.getElementById('newCompanyName').value.trim();
             if (!name) {
                 alert('Company name is required!');
                 return;
             }
             
-            const newId = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
-            
-            companies.push({
-                id: newId,
+            const companyData = {
+                id: editingId || null,
                 name: name,
                 address: document.getElementById('newCompanyAddress').value.trim(),
                 phone: document.getElementById('newCompanyPhone').value.trim(),
                 email: document.getElementById('newCompanyEmail').value.trim()
-            });
+            };
             
-            localStorage.setItem('companies', JSON.stringify(companies));
+            const result = await saveToServer('saveCompany', companyData);
             
-            // Clear form
-            document.getElementById('newCompanyName').value = '';
-            document.getElementById('newCompanyAddress').value = '';
-            document.getElementById('newCompanyPhone').value = '';
-            document.getElementById('newCompanyEmail').value = '';
-            
-            loadCompanyListTable();
-            alert('Company added successfully!');
+            if (result.success) {
+                // Clear form
+                document.getElementById('newCompanyName').value = '';
+                document.getElementById('newCompanyAddress').value = '';
+                document.getElementById('newCompanyPhone').value = '';
+                document.getElementById('newCompanyEmail').value = '';
+                editingId = null;
+                
+                await loadCompanies();
+                alert('Company saved successfully!');
+            } else {
+                alert('Error saving company: ' + result.message);
+            }
         }
 
         // Edit company
         function editCompany(id) {
             const company = companies.find(c => c.id === id);
             if (company) {
-                // Fill the add form with company data
+                editingId = id;
                 document.getElementById('newCompanyName').value = company.name;
                 document.getElementById('newCompanyAddress').value = company.address || '';
                 document.getElementById('newCompanyPhone').value = company.phone || '';
                 document.getElementById('newCompanyEmail').value = company.email || '';
                 
-                // Remove old and add updated version
-                companies = companies.filter(c => c.id !== id);
-                localStorage.setItem('companies', JSON.stringify(companies));
-                
-                alert('Now edit the details and click "Add Company" to update');
-                loadCompanyListTable();
+                document.getElementById('newCompanyName').focus();
             }
         }
 
@@ -185,11 +185,14 @@
         }
 
         // Delete company
-        function deleteCompany(id) {
+        async function deleteCompany(id) {
             if (confirm('Are you sure you want to delete this company?')) {
-                companies = companies.filter(c => c.id !== id);
-                localStorage.setItem('companies', JSON.stringify(companies));
-                loadCompanyListTable();
+                const result = await saveToServer('deleteCompany', { id: id });
+                if (result.success) {
+                    await loadCompanies();
+                } else {
+                    alert('Error deleting company: ' + result.message);
+                }
             }
         }
 
